@@ -104,18 +104,25 @@ In this step, you will add the FTP connection to the integration canvas and conf
 
 On the canvas, click the plus sign on the arrow between the schedule icon and the stop icon.
 ![](images/1.2.1.png)
+
 Select the FTP connection you created. Give the endpoint a name that describes its purpose best (ReadFile).
 ![](images/1.2.2.png)
+
 Choose **Read a File** for the operation and **Binary** for transfer mode. You may optionally add the Input Directory and File Name, but since nearly any use case using this method will pass in these fields dynamically, you should submit the file name and directory values in the mapper.
 ![](images/1.2.3.png)
+
 Choose **Yes** for specifying file schema and **CSV** for schema type.
 ![](images/1.2.4.png)
+
 For the file selection, upload the **one.csv** file provided in this repository. Enter **row** for the record name and **rowSet** for the recordSet name; these are just variable names that the mapper will use to organize source/target payloads. Leave everything else as the default.
 ![](images/1.2.5.png)
+
 Click **done** and open the mapper that spawned for the FTP connection.
 ![](images/1.2.6.png)
+
 Expand **FileReadRequest** on the target side, then right-click on the text for **filename** and choose **Create Target Node**. This will open an expression editor at the bottom of the screen where you can hard-code the variable for now. Click on the wrench-screwdriver icon in the lower right corner to edit. Do the same for **directory**. _In production use cases, the variable will most likely be a complex mapping and concatenation._
 ![](images/1.2.7.png)
+
 **Validate** the mapping, then **Save** your integration.
 ![](images/1.2.8.png)
 
@@ -125,18 +132,25 @@ In this step, you will add the FTP connection to the integration canvas and conf
 
 On the canvas, click the plus sign on the arrow between the stop icon and the FTP element before it.
 ![](images/1.3.1.png)
+
 Select the FTP connection you created. Give the endpoint a name that describes its purpose best (WriteFile).
 ![](images/1.3.2.png)
+
 Choose **Write File** for the operation and **Binary** for the transfer mode. For the output directory and file name pattern, you may add anything you wish here since you can overwrite it again using the mapper.
 ![](images/1.3.3.png)
+
 Choose **Yes** for specifying file schema and **CSV** for schema type.
 ![](images/1.3.4.png)
+
 For the file selection, upload the **one.csv** file provided in this repository. Enter **row** for the record name and **rowSet** for the recordSet name. Leave everything else as the default.
 ![](images/1.3.5.png)
+
 Click **done** and open the mapper that spawned for the FTP connection.
 ![](images/1.3.6.png)
+
 Expand **OutboundFTPHeaderType** on the target side, then create a target node for and open the expression editor for **fileName**. You may configure any name or directory, just make sure the directory exists. I am writing `newperson.csv` to `/inbound`.
 ![](images/1.3.7.png)
+
 **Validate** the mapping, then **Save** your integration.
 ![](images/1.3.8.png)
 
@@ -146,20 +160,28 @@ In this step, you will apply the mapping to change the delimiter character in ea
 
 Open the second mapper.
 ![](images/1.4.1.png)
+
 Expand **rowSet > row > header** on the target side. Create a target node and open the expression editor for **header**.
 ![](images/1.4.2.png)
+
 Click this button to expand the functions panel.
 ![](images/1.4.3.png)
+
 Expand **Functions > String** and drag **create-delimited-string** to the expression editor. Navigate your cursor to the first field. _create-delimited-string is a function with two arguments: `nodeset` and `delimiter`. It concatenates all elements of the `nodeset` into a string, separated by the `delimiter`._
 ![](images/1.4.4.png)
+
 Expand **Functions > Advanced** and drag **create-nodeset-from-delimited-string** to the expression editor. The function will be inserted where your cursor is. _create-nodeset-from-delimited-string is a function with three arguments: `qname`, `delimitedString`, and `delimiter`. It separates `delimitedString` into an XML object defined by `qname` by the `delimiter` character._
 ![](images/1.4.5.png)
+
 Fill out the function arguments. The first argument for `create-nodeset-from-delimited-string` should be `"{}value"`. The third argument for `create-nodeset-from-delimited-string` should be `"#"`. The second argument for `create-delimited-string` should be `","`. The effect of these parameter assignments is that any `#` in the input string will be replaced with a `,`. If this transformation were processed into an XML document, it will have a null namespace followed by a list of `value` elements. Navigatee your cursor to the second argument position for `create-nodeset-from-delimited-string`.
 ![](images/1.4.6.png)
+
 Expand **ReadFile Response (FTP) > SyncReadFileResponse > FileReadResponse > rowSet > row > header**. Drag **header** from the source side to the expression editor. Click the check mark under the wrench/screwdrive ricon to save this expression to the mapper (circled).
 ![](images/1.4.7.png)
+
 Finally, drag **row** from the source side to **row** on the target side. This creates a for-each loop so that each row (a repeating element) is processed instead of just the first one. You can see this for-each loop by clicking the XSLT button (circled).
 ![](images/1.4.8/png)
+
 **Validate** the mapping, then **Save** the integration. The complete string generated is the following, **which may not be the same as the one you generate due to differing namespaces.**
 ```
 oraext:create-delimited-string ( oraext:create-nodeset-from-delimited-string ( "{}value" ,  $ReadFile/nsmpr1:SyncReadFileResponse/ns21:FileReadResponse/ns20:rowSet/ns20:row/ns20:header  , "#" ) , "," )
@@ -171,11 +193,13 @@ In the FTP server that the FTP connection points to, make sure the `personhash.c
 
 You will need to configure a tracking variable prior to activating the integration. Click the hamburger menu under the Save button, then Tracking.
 ![](images/1.5.1.png)
+
 Drag **startTime** to the right, or click **startTime** and then click the right chevron button (circled). Save, then **Save** your integration.
 ![](images/1.5.2.png)
 
 Now you may activate the integration without scheduling. You should **Enable Tracing** and **Include Payload** in case something fails. Once you have done so and the integration is active, click the "play" button, then **Submit Now**.
 ![](images/1.5.3.png)
+
 **Ad Hoc** request should already be selected. Click **Submit Now**. Check both the OIC monitoring page for **Tracking** and the FTP server for the new file. You will notice that it has been changed to a CSV file with each `#` replaced with a `,`.
 
 ## Method 2: Map Parsed Row to Individual Target Elements
@@ -206,12 +230,16 @@ In this step, you will apply an XSLT transformation that takes each row, splits 
 
 Open the second mapper. Apply any filename/directory transformations you want.
 ![](images/2.4.1.png)
+
 On the source side, expand **ReadFile Response (FTP) > SyncReadFileResponse > FileReadResponse > rowSet > row**. On the target side, expand **rowSet > row**. Drag **row** over to **row**.
 ![](images/2.4.2.png)
+
 You will need to generate XSLT code for the next step to simplify things - the alternative is for you to write a lot of XSLT code, which greatly increases the chance of an error. You will create a target node for each of the sub-elements under **row** on the target side.
 ![](images/2.4.3.png)
+
 Now you will modify the XSLT to parse out the node set as a variable and access its contents in the same mapper. Click **Code** (circled) and scroll to the bottom. Your code should look similar to this screenshot:
 ![](images/2.4.4.png)
+
 Under the `xsl:for-each` element in the XSLT code (line 50), add this code:
 ```
 <xsl:variable name="var1" select="oraext:create-nodeset-from-delimited-string (&quot;{}value&quot;, ns25:header, &quot;#&quot; )"/>
@@ -219,8 +247,10 @@ Under the `xsl:for-each` element in the XSLT code (line 50), add this code:
 What this code does is it creates a new XSL variable called `var1` (accessed via `$var1`) with the value of the node set created by the `select` attribute. You may need to replace the `ns25:header` string depending on if the namespace was changed. You can test this by validating the mapping. If the mapping is not valid, you can check which namespace **header** has by mapping **header** from the source side to any target node.
 ![](images/2.4.5.png)
 ![](images/2.4.6.png)
+
 Now you will need to insert an `xsl:value-of` operator for each one of the columns like `<ns23:Fname/>`. You may do so by replacing `<ns23:Fname/>` with `<ns23:Fname><xsl:value-of select="$var1[X]"/></ns23:Fname>` where `X` is the index of the node to get. Since XSL node sets are 1-indexed, Fname is `"$var1[1]"`, Lname is `"$var1[2]"`, and so on. Once your mapping is complete, it should look something like this:
 ![](images/2.4.7.png)
+
 The above mapping basically says: For each **row** from **ReadFile Response**, map the first element of the node set **var1** to **Fname** from target; second element of the node set **var1** to **Lname**, etc. WHERE **var1** is a node set created by splitting the **row/header** of **ReadFile Response** by the delimiter character `#`. **Validate** the mapping, then **Save** your integration. _If you try to re-enter the mapper, it will now only display the code view since OIC does not currently support displaying XSLT variables in graphical view._
 
 ### Step 2.5: Activate and Test
