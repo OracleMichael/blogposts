@@ -5,7 +5,6 @@
 In this guide, I will show how to read a CSV file using a different **column** delimiter than the presets available on the OIC FTP adapter. These are the space, comma, semicolon, tab, and pipe characters ` ,;	|`. Each (column) field may be optionally enclosed by these characters: double quote, single quote, parentheses, square bracket, curly brace, angle bracket, or pipe characters `"'()[]{}<>|`. Finally, each row is terminated by the END_OF_LINE character, newline, carriage return, or both `${eol}` `\n` `\r` `\r\n`.
 
 Normally, a CSV file will use commas, double quotes, and `${eol}` as its column delimiter, quotation character, and row delimiter: `person.csv`
-
 ```
 Fname,Lname,email,phone,BID
 Alice,Sundayala,alice.sundayala@email.com,3004005000,1
@@ -17,9 +16,7 @@ Franz,Guillermo,franz.guillermo@email.com,1311411511,3
 Grant,Zapanicca,grant.zapanicca@email.com,3104456667,4
 Haley,Riverbend,haley.riverbend@email.com,8851357900,2
 ```
-
-In this guide, I will be working with the following CSV file: `personhash.csv`
-
+In this guide, I will be showing two methods to transform this CSV file into the above: `personhash.csv`
 ```
 Fname#Lname#email#phone#BID
 Alice#Sundayala#alice.sundayala@email.com#3004005000#1
@@ -31,22 +28,21 @@ Franz#Guillermo#franz.guillermo@email.com#1311411511#3
 Grant#Zapanicca#grant.zapanicca@email.com#3104456667#4
 Haley#Riverbend#haley.riverbend@email.com#8851357900#2
 ```
-
 where the column delimiter has been replaced by a hash symbol `#`.
 
 ## Disclaimer
 
-This guide is not meant to be a best-practice guide for performing mutations to CSV files. It is only meant to show the out-of-the-box capabilities of OIC's XSLT transformations. ***The best practice in OIC would be to move the CSV file to a new storage location (if required) and invoke a third-party function that performs the required transformations before continuing downstream processing***.
+This guide is not meant to be a best-practice guide for performing mutations to CSV files. It is only meant to show the out-of-the-box capabilities of OIC's XSLT transformations. ***The best practice in OIC would be to optionally move the CSV file to a new storage location and invoke a third-party function that performs the required transformations before continuing downstream processing***.
 
 ## Auxiliary Information
 
-This guide was written on November 22, 2021. The version of OIC that was used to create these integrations was version 21.4.2.
+This guide was written between November 22, 2021 and December 1, 2021. The version of OIC that was used to create these integrations was version 21.4.2.
 
 ## Assumptions
 
 This guide assumes the following:
 - The CSV file originates from a file server and is accessed via the FTP adapter.
-- The file in [Method 1](#method-1-change-entire-row) and [Method 2](#method-2-map-parsed-row-to-individual-target-elements) does NOT contain delimiter characters that you will be using to replace the existing delimiter characters. For instance, if you wish to replace `A#B#C#D#E, Euler's Number\r\n` with `A,B,C,D,E, Euler's Number\r\n` the extra comma before ` Euler's` will result in this row of data having six fields instead of five. For a more detailed discussion on how to handle these situations, see [this section](#advanced-methods-for-parsing-existing-delimiter-characters).
+- The file used in [Method 1](#method-1-change-entire-row) and [Method 2](#method-2-map-parsed-row-to-individual-target-elements) does NOT contain delimiter characters that you will be using to replace the existing delimiter characters. For instance, if you wish to replace `A#B#C#D#E, Euler's Number\r\n` with `A,B,C,D,E, Euler's Number\r\n` the extra comma before ` Euler's` will result in this row of data having six fields instead of five. For a more detailed discussion on how to handle these situations, see [this section](#advanced-methods-for-parsing-existing-delimiter-characters).
 - Certain XSLT functions mentioned in this guide such as `oraext:create-delimited-string` are shortened to `create-delimited-string` (i.e. namespace removed).
 
 ## Prerequisites
@@ -61,7 +57,11 @@ Please make sure you understand the following concepts prior to reading this gui
 
 This guide is meant for **somewhat experienced OIC users**, meaning users know how to do each of the above and have done them at least once.
 
-In addition, it is recommended that the consumer of this guide has familiarity working with the FTP adapter and the XSLT mappings (i.e. knows what they are and where to find them).
+In addition, it is recommended that the consumer of this guide has familiarity working with the FTP adapter and the XSLT mappings (i.e. knows what they are and where to find them). If you do not have access to an FTP server, you may create a file server as detailed [here](https://docs.oracle.com/en/cloud/paas/integration-cloud/file-server/enable-file-server.html). To access your FTP server, you may use third-party software such as WinSCP (Windows), FileZilla, Cyberduck, etc.
+
+# Methods
+
+Prior to implementing either of these methods, you will need to create the FTP connection first.
 
 ## Create the FTP Connection
 
@@ -69,26 +69,25 @@ Navigate to your OIC home page and click **Integrations > Connections** on the l
 
 Add all the necessary details for your FTP adapter. It must have at least the FTP host address, server port, and credentials for accessing it, which is either username/password or RSA key. The FTP connection provided in the `ChangeDelimiter.par` package connects to an OIC file server using the SFTP protocol.
 
-# Methods
+Once you have added all the necessary connection details, click **Test**. If successful, the configuration percentage will be 100%, and you can then **Save** the connection.
 
 ## Method 1: Change Entire Row
 
 In this method, I will download the file from the file server, then use the following pseudocode mapping to map each entire row to a new entire row where all old delimiters are replaced by new ones:
-
 ```
 create-delimited-string(
 	create-nodeset-from-delimited-string(
 		$qname,
 		$some_delimited_string,
-		$old_delimiter_character
-	), $new_delimiter_character
+		$old_delimiter_string
+	), $new_delimiter_string
 )
 ```
 Explanation for variables:
 - `$qname`: a string of the form `{a}b` or `a:b` which represents a namespace. The first form generally looks something like `{http://test.com/xmlns}value` and the second one could be `namespace:value`.
 - `$some_delimited_string`: a string that contains row data. This could be something like `A#B#C#D#E`. This will also generally be passed in as a variable.
-- `$old_delimiter_character`: a single character that separates all the fields in `$some_delimited_string`. In this example it would be `#`.
-- `$new_delimiter_character`: a single character to replace `$old_delimiter_character`. Maybe I want my row data to look like `A,B,C,D,E`, meaning this character should be `,`.
+- `$old_delimiter_string`: a string that separates all the fields in `$some_delimited_string`. In this example it would be `#`.
+- `$new_delimiter_string`: a string to replace `$old_delimiter_string`. Maybe I want my row data to look like `A,B,C,D,E`, meaning this string should be `,`.
 
 Example:
 ```
@@ -100,6 +99,7 @@ create-delimited-string(
 	), ','
 )
 ```
+This transforms the input string `A#B#C#D#E` into `A,B,C,D,E`.
 
 Additionally, the following function may also be used:
 ```
@@ -117,11 +117,11 @@ Explanation for variables:
 Examples:
 ```
 translate("big if true", "b", "f") --> "fig if true"
-translate("-abc-", "-", "")        --> "abc" // extra characters in the second argument are removed from the input string
+translate("-abc-", "a-", "b")      --> "bbc" // extra characters in the second argument are removed from the input string
 translate("abcde", "abc", "zyxwv") --> "zyxde" // extra characters in the third argument are ignored
 translate("500 bucks", "bb", "df") --> "500 ducks" // only first replacement character is counted
 ```
-***READ: The `translate` function can only be used to replace single characters. It cannot be used to replace strings with other strings. You will need to use the first method described above.***
+***READ: The `translate` function can only be used to replace single characters. It cannot be used to replace strings with other strings. You will need to use the `create-delimited-string` and `create-nodeset-from-delimited-string` functions described above.***
 
 ### Step 1.1: Create Integration
 
@@ -157,7 +157,7 @@ Expand **FileReadRequest** on the target side, then right-click on the text for 
 
 ### Step 1.3: Write File
 
-In this step, you will add the FTP connection to the integration canvas and configure it to write a file to FTP. ***This step need not send the file to FTP. It is possible to write it locally to OIC's temporary storage using the Stage File action. I am using FTP so that I can view the file contents in the FTP server when the file has been transformed.***
+In this step, you will add the FTP connection to the integration canvas and configure it to write a file to FTP. ***This step need not send the file to FTP. It is possible to write it locally to OIC's temporary storage using the Stage File action, then access the file later in this integration for further processing. I am using FTP so that I can view the file contents in the FTP server after the file has been transformed.***
 
 On the canvas, click the plus sign on the arrow between the stop icon and the FTP element before it.
 ![](images/1.3.1.png)
@@ -185,7 +185,7 @@ Expand **OutboundFTPHeaderType** on the target side, then create a target node f
 
 ### Step 1.4: Define Mapping
 
-In this step, you will apply the mapping to change the delimiter character in each row to the desired delimiter character. For a more advanced discussion on what to do if the new delimiter character already exists in the row data, see [this section](#advanced-methods-for-parsing-existing-delimiter-characters).
+In this step, you will apply the mapping to change the delimiter character in each row to the desired delimiter character. Keep in mind that the only replacement you are doing is replacing any `#` with `,` in the entire row. For a more advanced discussion on what to do if the new delimiter character already exists in the row data, see [this section](#advanced-methods-for-parsing-existing-delimiter-characters).
 
 Open the second mapper.
 ![](images/1.4.1.png)
@@ -199,10 +199,10 @@ Click this button to expand the functions panel.
 Expand **Functions > String** and drag **create-delimited-string** to the expression editor. Navigate your cursor to the first field. _create-delimited-string is a function with two arguments: `nodeset` and `delimiter`. It concatenates all elements of the `nodeset` into a string, separated by the `delimiter`._
 ![](images/1.4.4.png)
 
-Expand **Functions > Advanced** and drag **create-nodeset-from-delimited-string** to the expression editor. The function will be inserted where your cursor is. _create-nodeset-from-delimited-string is a function with three arguments: `qname`, `delimitedString`, and `delimiter`. It separates `delimitedString` into an XML object defined by `qname` by the `delimiter` character._
+Expand **Functions > Advanced** and drag **create-nodeset-from-delimited-string** to the expression editor. The function will be inserted where your cursor is; **please ensure that your expression exactly matches the one in the image**. _create-nodeset-from-delimited-string is a function with three arguments: `qname`, `delimitedString`, and `delimiter`. It separates `delimitedString` into an XML object defined by `qname` by the `delimiter` character._
 ![](images/1.4.5.png)
 
-Fill out the function arguments. The first argument for `create-nodeset-from-delimited-string` should be `"{}value"`. The third argument for `create-nodeset-from-delimited-string` should be `"#"`. The second argument for `create-delimited-string` should be `","`. The effect of these parameter assignments is that any `#` in the input string will be replaced with a `,`. If this transformation were processed into an XML document, it will have a null namespace followed by a list of `value` elements. Navigate your cursor to the second argument position for `create-nodeset-from-delimited-string`.
+Fill out the static function arguments. The first argument for `create-nodeset-from-delimited-string` should be `"{}value"`. The third argument for `create-nodeset-from-delimited-string` should be `"#"`. The second argument for `create-delimited-string` should be `","`. The effect of these parameter assignments is that any `#` in the input string will be replaced with a `,`. If this transformation were processed into an XML document, it will have a null namespace followed by a list of `value` elements. Navigate your cursor to the second argument position for `create-nodeset-from-delimited-string`.
 ![](images/1.4.6.png)
 
 Expand **ReadFile Response (FTP) > SyncReadFileResponse > FileReadResponse > rowSet > row > header**. Drag **header** from the source side to the expression editor. Click the check mark under the wrench/screwdriver icon to save this expression to the mapper (circled).
@@ -223,7 +223,7 @@ This performs the exact same text replacement as the above, and it may be easier
 
 ### Step 1.5: Activate and Test
 
-In the FTP server that the FTP connection points to, make sure the `personhash.csv` file is in the directory configured in step 2. Also, make sure the directory in step 3 exists, and that the user connected to the provided credentials has read access to the step 2 directory and write access to the step 3 directory.
+In the FTP server that the FTP connection points to, make sure the `personhash.csv` file is in the FTP directory configured in step 2. Also, make sure the directory in step 3 exists on the FTP server, and that the user connected to the provided credentials has read access to the step 2 directory and write access to the step 3 directory.
 
 You will need to configure a tracking variable prior to activating the integration. Click the hamburger menu under the Save button, then Tracking.
 ![](images/1.5.1.png)
@@ -234,7 +234,9 @@ Drag **startTime** to the right, or click **startTime** and then click the right
 Now you may activate the integration without scheduling. You should **Enable Tracing** and **Include Payload** in case something fails. Once you have done so and the integration is active, click the "play" button, then **Submit Now**.
 ![](images/1.5.3.png)
 
-**Ad Hoc** request should already be selected. Click **Submit Now**. Check both the OIC monitoring page for **Tracking** and the FTP server for the new file. You will notice that it has been changed to a CSV file with each `#` replaced with a `,`.
+**Ad Hoc** request should already be selected. Click **Submit Now**. Check both the OIC monitoring page for **Tracking** and the FTP server for the new file. You will notice that a new CSV file will be generated in your FTP server with each `#` replaced with a `,` from `personhash.csv`.
+
+In the rare yet inevitable case of an error, check the error message and map payloads of the integration. The most common cause of errors resulting from following guides like these is spelling/syntax errors _[citation needed]_.
 
 ## Method 2: Map Parsed Row to Individual Target Elements
 
@@ -242,6 +244,28 @@ In this method, I will download the file from the file server, then use the foll
 ![](images/2.0.1.png)
 
 This code shows that `ns23:row` will contain exactly one column, called `ns23:header`. The original CSV file contains five columns that can actually be mapped under `ns23:row`.
+
+The mapping for this method:
+```
+create-nodeset-from-delimited-string(
+	$qname,
+	$some_delimited_string,
+	$delimiter_string
+)
+```
+Once this mapping is completed and assigned to a variable (for instance `var1`), you can then access elements of this node-set like so: `$var1[1]`, `$var1[2]` and so on. Here is the difference in the XSLT code between the previous and current methods:
+```
+<!-- previous method -->
+<ns20:header>
+	<xsl:value-of select="oraext:create-delimited-string(oraext:create... )" />
+</ns20:header>
+
+<!-- current method -->
+<xsl:variable name="var1" select="oraext:create-nodeset-from-..." />
+<ns20:Fname>
+	<xsl:value-of select="$var1[1]" />
+</ns20:Fname>
+```
 
 If you wish to skip steps 2.1-2.2, you can clone the integration created from method 1 and destroy any existing mappings. Otherwise, they are identical to the steps in method 1, and you may refer to them there.
 
@@ -271,14 +295,14 @@ On the source side, expand **ReadFile Response (FTP) > SyncReadFileResponse > Fi
 You will need to generate XSLT code for the next step to simplify things - the alternative is for you to write a lot of XSLT code, which greatly increases the chance of an error. You will create a target node for each of the sub-elements under **row** on the target side.
 ![](images/2.4.3.png)
 
-Now you will modify the XSLT to parse out the node set as a variable and access its contents in the same mapper. Click **Code** (circled) and scroll to the bottom. Your code should look similar to this screenshot:
+Now you will modify the XSLT code to parse out the node set as a variable and access its contents in the same mapper. Click **Code** (circled) and scroll to the bottom. Your code should look similar to this image:
 ![](images/2.4.4.png)
 
 Under the `xsl:for-each` element in the XSLT code (line 50), add this code:
 ```
 <xsl:variable name="var1" select="oraext:create-nodeset-from-delimited-string (&quot;{}value&quot;, ns25:header, &quot;#&quot; )"/>
 ```
-What this code does is it creates a new XSL variable called `var1` (accessed via `$var1`) with the value of the node set created by the `select` attribute. You may need to replace the `ns25:header` string depending on if the namespace was changed. You can test this by validating the mapping. If the mapping is not valid, you can check which namespace **header** has by mapping **header** from the source side to any target node.
+What this code does is it creates a new XSL variable called `var1` (accessed via `$var1`) with the value of the node set specified by the `select` attribute. You may need to replace the `ns25:header` string depending on if the namespace is different. You can test this by validating the mapping. If the mapping is not valid, you can check which namespace **header** has by mapping **header** from the source side to any target node.
 ![](images/2.4.5.png)
 ![](images/2.4.6.png)
 
@@ -345,7 +369,7 @@ create-delimited-string(
 )</pre></td>
 	</tr>
 	<tr>
-		<td>File has quotation character</td>
+		<td>File has replacement quotation character</td>
 		<td><pre>A##B##C##D##oracle "integration" cloud</pre></td>
 		<td><pre>"A","B","C","D","oracle ""integration"" cloud"</pre></td>
 		<td>Replace all <pre>"</pre> with <pre>""</pre>, then replace all <pre>##</pre> with <pre>","</pre>, then encapsulate with double quotes</td>
@@ -370,8 +394,8 @@ create-delimited-string(
 		<td>File has existing column delimiter and/or escaped quotation characters surrounded by quotation characters</td>
 		<td>"ABCD"#"Unit #4 is ""fourthcoming"""</td>
 		<td>"ABCD","Unit #4 is ""fourthcoming"""</td>
-		<td>Replace all escaped quotation characters with a character not present in the data; split string by quotation character; perform field delimiter replacement on every odd-indexed node; rejoin nodes into string, separated by [new] quotation character; reinstate escaped quotation characters</td>
-		<td>See <a href="#handling-files-containing-existing-field-delimiter-and-escaped-quotation-characters-surrounded-by-quotation-characters">this section</a> for full transformation.</td>
+		<td>Replace all escaped quotation characters with a character not present in the data; split string by quotation character; perform column delimiter replacement on every odd-indexed node; rejoin nodes into string, separated by [new] quotation character; reinstate escaped quotation characters</td>
+		<td>See <a href="#handling-files-containing-existing-column-delimiter-and-escaped-quotation-characters-surrounded-by-quotation-characters">this section</a> for full XSLT code.</td>
 	</tr>
 	<tr>
 		<td>File has non-standard row delimiters</td>
@@ -390,7 +414,7 @@ create-delimited-string(
 		<td>File has embedded line breaks in row data</td>
 		<td>"ABCD"#"Unit #4 is ""fourthcoming"""</td>
 		<td>"ABCD","Unit #4 is ""fourthcoming"""</td>
-		<td>Replace all escaped quotation characters with a character not present in the data; split string by quotation character; perform field delimiter replacement on every odd-indexed node; rejoin nodes into string, separated by [new] quotation character; reinstate escaped quotation characters</td>
+		<td>Replace all escaped quotation characters with a character not present in the data; split string by quotation character; perform column delimiter replacement on every odd-indexed node; rejoin nodes into string, separated by [new] quotation character; reinstate escaped quotation characters</td>
 		<td>See <a href="#handling-files-containing-required-quotation-characters">this section</a> for full transformation.</td>
 	</tr>-->
 </table>
@@ -415,11 +439,11 @@ translate(
 	create-nodeset-from-delimited-string(
 		$qname,
 		$some_delimited_string,
-		$old_delimiter_character
-	), $new_delimiter_character
+		$old_delimiter_string
+	), $new_delimiter_string
 )
 ```
-where `$old_delimiter_character` can actually be a string of multiple characters. In this case the XSLT expression would look like:
+where `$old_delimiter_string` can actually be a string of multiple characters. Note that `$new_delimiter_string` can also be a string of multiple characters, but since the purpose of this guide is to convert a non-standard CSV file into a more standard-looking one, `$new_delimiter_string` will pretty much always be the comma. In this case the XSLT expression would look like:
 ```
 create-delimited-string(
 	create-nodeset-from-delimited-string(
@@ -459,11 +483,11 @@ create-delimited-string(
 	create-nodeset-from-delimited-string(
 		$qname,
 		$some_delimited_string,
-		$old_delimiter_character
-	), $new_delimiter_character
+		$old_delimiter_string
+	), $new_delimiter_string
 )
 ```
-replacing all `$old_delimiter_character` with `$new_delimiter_character`. Performing transformation (2) in OIC looks like:
+replacing all `$old_delimiter_string` with `$new_delimiter_string`. Performing transformation (2) in OIC looks like:
 ```
 concat($quotation_character,
 
@@ -471,8 +495,8 @@ create-delimited-string(
 	create-nodeset-from-delimited-string(
 		$qname,
 		$some_delimited_string,
-		$old_delimiter_character
-	), concat($quotation_character, $new_delimiter_character, $quotation_character)
+		$old_delimiter_string
+	), concat($quotation_character, $new_delimiter_string, $quotation_character)
 ),
 
 $quotation_character
@@ -520,7 +544,7 @@ Resolving this kind of pattern is difficult. Some conventions that assume the do
 Doe, John##The "Big" Bopper##0
 // new data
 "Doe, John","The ""Big"" Bopper","0"   // replacing each original double quote with two
-"Doe, John","The \"Big\" Bopper","0"   // replacing each original double quote with an escaped double quote
+"Doe, John","The \"Big\" Bopper","0"   // replacing each original double quote with backslash double quote
 ```
 To accomplish either of the above, you would need to replace all double quotation with one of the above replacement quotation strings, then apply the transformation in the previous section on handling files with a replacement column delimiter.
 
@@ -530,11 +554,11 @@ create-delimited-string(
 	create-nodeset-from-delimited-string(
 		$qname,
 		$some_delimited_string,
-		$old_delimiter_character
-	), $new_delimiter_character
+		$old_delimiter_string
+	), $new_delimiter_string
 )
 ```
-Second transformation: as above, **replace all `<cd>` with `","`, then surround each row with `"`**
+Second transformation: as above, **replace all `##` with `","`, then surround each row with `"`**
 ```
 concat($quotation_character,
 
@@ -542,8 +566,8 @@ create-delimited-string(
 	create-nodeset-from-delimited-string(
 		$qname,
 		$some_delimited_string,
-		$old_delimiter_character
-	), concat($quotation_character, $new_delimiter_character, $quotation_character)
+		$old_delimiter_string
+	), concat($quotation_character, $new_delimiter_string, $quotation_character)
 ),
 
 $quotation_character
@@ -574,7 +598,7 @@ create-delimited-string(
 ```
 and the original string `Doe, John##The "Big" Bopper##0` will be transformed to `"Doe, John","The ""Big"" Bopper","0"`.
 
-### Handling Files Containing Existing Field Delimiter and Escaped Quotation Characters Surrounded by Quotation Characters
+### Handling Files Containing Existing Column Delimiter and Escaped Quotation Characters Surrounded by Quotation Characters
 
 Consider the following file:
 ```
@@ -603,7 +627,7 @@ First transformation: **replace all escaped quotation characters `""` with a cha
 create-delimited-string(
 	create-nodeset-from-delimited-string(
 		'{}step1',
-		'"ABCD"#"Unit #4 is ""fourthcoming"""',
+		'ABCD#"Unit #4 is ""fourthcoming"""',
 		'""'
 	), '©'
 )
@@ -638,7 +662,7 @@ Third transformation: **for every odd-indexed element of that array (since XSLT 
 	</nodesetobj>
 </xsl:variable>
 ```
-Fourth transformation: **re-join array back to a string by the [new] quotation character `"`**. Note the use of `/nodesetobj/elem` in
+Fourth transformation: **re-join array back to a string by the [new] quotation character `"`**. Note the use of `/nodesetobj/elem` in the expression.
 ```
 create-delimited-string(
 	$step3array/nodesetobj/elem,
@@ -657,7 +681,7 @@ create-delimited-string(
 ```
 Putting these together would look like:
 ```
-<xsl:variable name="step1string" select="oraext:create-delimited-string(  oraext:create-nodeset-from-delimited-string('{}step1', '"ABCD"#"Unit #4 is ""fourthcoming"""', '&quot;&quot;'), '©')"/>
+<xsl:variable name="step1string" select="oraext:create-delimited-string(  oraext:create-nodeset-from-delimited-string('{}step1', 'ABCD#"Unit #4 is ""fourthcoming"""', '&quot;&quot;'), '©')"/>
 <xsl:variable name="step2array" select="oraext:create-nodeset-from-delimited-string('{}step2', $step1string, '&quot;')"/>
 <xsl:variable name="step3array">
 	<nodesetobj>
@@ -681,15 +705,15 @@ Putting these together would look like:
 <xsl:variable name="step4string" select="oraext:create-delimited-string($step3array/nodesetobj/elem, '&quot;')"/>
 <xsl:variable name="step5string" select="oraext:create-delimited-string(oraext:create-nodeset-from-delimited-string('{}step5', $step4string, '©'), '&quot;&quot;')"/>
 ```
-The separation of all steps into distinct variables is solely to help with segmenting the code into the five steps mentioned above. The XSLT code above will correctly transform `"ABCD","Unit #4 is ""fourthcoming"""` into `"ABCD","Unit #4 is""fourthcoming"""`. Note how the `#4` is not incorrectly transformed into `,4` since `#` is a field delimiter that is surrounded by a pair of quotation characters.
-<!--
+The separation of all steps into distinct variables is mainly to help with segmenting the code into the five steps mentioned above. The XSLT code above will correctly transform `ABCD,"Unit #4 is ""fourthcoming"""` into `ABCD,"Unit #4 is""fourthcoming"""`. Note how the `#4` is not incorrectly transformed into `,4` since `#` is a column delimiter that is surrounded by a pair of quotation characters.
+
 ### Handling Non-Standard Row Delimiters
 
 Consider the following file:
 ```
 A<cd>B<cd>C<cd>D<cd>E<rd>F<cd>G<cd>H<cd>I<cd>J
 ```
-This file may seem like it only has one row, but it has two rows of delimited data. The row delimiter in this case is `<rd>` whereas the column delimiter is `<cd>`. This process is relatively simple - it is just two transformations of the entire file with potentially multi-character row and column delimiters. However, this method of processing the entire file at once may result in runtime issues†. Note that this transformation is essentially the same as the transformation mentioned in [this section](#multi-character-replacement), except it will affect the _entire file_ at once instead of each row in the file (since the file technically has one row as far as OIC can tell).
+This file may seem like it only has one row, but it actually has two rows of delimited data. The row delimiter in this case is `<rd>` whereas the column delimiter is `<cd>`. This process is relatively simple - it is just two transformations of the entire file with potentially multi-character row and column delimiters. However, this method of processing the entire file at once may result in runtime issues†. Note that this transformation is essentially the same as the transformation mentioned in [this section](#multi-character-replacement), except it will affect the _entire file_ at once instead of each row in the file (since the file technically has one row as far as OIC can tell). You may encounter this kind of file if you work with .dat files from data cube exports from Oracle CPQ.
 
 Transformation: **replace all `<rd>` with `\n`**
 ```
@@ -708,8 +732,8 @@ F<cd>G<cd>H<cd>I<cd>J
 ```
 Once this transformation has been performed, you may write the newly generated string (which is the entire file) to a new file, then use the method in [this section](#multi-character-replacement) to process the rest of your data as normal.
 
-† There are file size limits for what OIC can process, as summarized [here](https://docs.oracle.com/en/cloud/paas/integration-cloud/oracle-integration-oci/service-limits.html). For your convenience: The OIC FTP adapter has a 1GB read/write limit when used without a schema, and it has a 10MB read/write limit when used with a schema for transformation. The OIC Stage File action has a 10MB "read entire file" limit - for larger files use the "read file in segments" action instead. In general, unless explicitly listed in the service limits, 10MB is a good upper estimate for good integration performance on OIC. As such, try not to use OIC to process large files.
-
+† There are file size limits for what OIC can process, as summarized [here](https://docs.oracle.com/en/cloud/paas/integration-cloud/oracle-integration-oci/service-limits.html). For your convenience: The OIC FTP adapter has a 1GB read/write limit when used without a schema, and it has a 10MB read/write limit when used with a schema for transformation (this guide only uses schema-based read/write operations). The OIC Stage File action has a 10MB "read entire file" limit - for larger files use the "read file in segments" action instead. In general, unless explicitly listed in the service limits, 10MB is a good upper estimate for good integration performance on OIC. As a general good practice, do not use OIC to process large files.
+<!--
 ### Handling Files Containing Embedded Line Breaks
 
 Consider the following file:
